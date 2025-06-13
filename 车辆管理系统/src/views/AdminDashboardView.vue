@@ -634,7 +634,8 @@ export default defineComponent({
         // Fetch All Materials
         const materialsResponse = await axios.get('http://localhost:10086/api/material/all', { headers });
         if (materialsResponse.data.code === 200) {
-          // allMaterials.value = materialsResponse.data.data;
+          allMaterials.value = materialsResponse.data.data;
+
           // // Fetch total stock and value
           // const totalStockResponse = await axios.get('http://localhost:10086/api/material/admin/totalStock', { headers });
           // if (totalStockResponse.data.code === 200) {
@@ -724,6 +725,7 @@ export default defineComponent({
       const token = localStorage.getItem('jwt_token');
       const headers = { Authorization: `Bearer ${token}` };
       try {
+        console.log(editMechanicForm.value.mechanicId);
         const response = await axios.put(`http://localhost:10086/api/mechanic/${editMechanicForm.value.mechanicId}`, null, {
           params: {
             specialty: editMechanicForm.value.specialty,
