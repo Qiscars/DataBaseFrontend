@@ -4,7 +4,10 @@ import { jwtDecode } from 'jwt-decode';
 const ModuleUser = {
   state: {
     username: "",
+    name: "",
     id: "",
+    contact:"",
+    role: "",
     access: "",
     is_login: false,
   },
@@ -13,10 +16,13 @@ const ModuleUser = {
   mutations: {
     updateUser(state, user) {
       // 将 token 存储到 localStorage
-      localStorage.setItem('access_token', user.access);
+      localStorage.setItem('jwt_token', user.access);
       state.id = user.id;
       state.username = user.username;
+      state.name = user.name;
       state.access = user.access;
+      state.contact = user.contact;
+      state.role = user.role;
       state.is_login = true;
 
     },
@@ -26,16 +32,19 @@ const ModuleUser = {
     logout(state) {
       state.id = "";
       state.username = "";
+      state.name = "";
       state.access = "";
+      state.role = "";
+      state.contact = "";
       state.is_login = false;
       // 清除 localStorage 中的 token
-      localStorage.removeItem('access_token');
+      localStorage.removeItem('jwt_token');
     }
   },
   actions: {
     login(context, data) {
       $.ajax({
-        url: 'http://localhost:8080/api/user/login',
+        url: 'http://localhost:10086/api/user/login',
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({
@@ -44,10 +53,14 @@ const ModuleUser = {
         }),
         dataType: 'json',
         success(resp){
+          console.log(resp);
           context.commit('updateUser', {
-            access: resp.JWT,
-            id: resp.userId,
-            username: resp.username,
+            id: resp.data.user.userId,
+            username: resp.data.user.username,
+            name: resp.data.user.username,
+            access: resp.data.token,
+            contact: resp.data.user.contact,
+            role: resp.data.user.role,
           })
           data.success();
         },
@@ -57,7 +70,7 @@ const ModuleUser = {
       });
     },
     autoLogin(context) {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('jwt_token');
       if (token) {
         try {
           const decodedToken = jwtDecode(token);
@@ -66,6 +79,9 @@ const ModuleUser = {
               access: token,
               id: decodedToken.userId,
               username: decodedToken.username,
+              name: decodedToken.name,
+              contact: decodedToken.contact,
+              role: decodedToken.role,
             });
           } else {
             context.commit('logout');

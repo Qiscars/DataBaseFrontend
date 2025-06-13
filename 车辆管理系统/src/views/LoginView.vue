@@ -48,7 +48,18 @@ export default {
             username : username.value,
             password : password.value,
             success(){
-                router.push({name : 'home'});
+                if(store.state.user.role === 'user')
+                {
+                  router.push({name : 'user-dashboard'});
+                }else if(store.state.user.role === 'admin'){
+                  router.push({name : 'admin-dashboard'});
+                }else if(store.state.user.role === 'mechanic'){
+                  router.push({name : 'mechanic-dashboard'});
+                }
+
+
+
+
             },
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
             error(error){
