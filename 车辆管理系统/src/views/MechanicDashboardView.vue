@@ -46,25 +46,59 @@
                 <div>
                   <strong>工单ID:</strong> {{ order.orderId }} |
                   <strong>车辆ID:</strong> {{ order.vehicleId }} |
-                  <strong>状态:</strong>
-                  <span :class="{'text-primary': order.status === 'pending', 'text-warning': order.status === 'assigned' || order.status === 'in_progress', 'text-success': order.status === 'completed', 'text-danger': order.status === 'cancelled'}">
-                    {{ order.status }}
-                  </span>
+                  <strong>分配状态:</strong>
+                  <span :class="{
+                'text-info': order.assignmentStatus === 'pending',
+                'text-success': order.assignmentStatus === 'accepted',
+                'text-danger': order.assignmentStatus === 'rejected'
+              }">
+              {{ order.assignmentStatus }}
+            </span>
+                  <br>
+                  <strong>工单状态:</strong>
+                  <span :class="{
+                'text-primary': order.orderStatus === 'pending',
+                'text-warning': order.orderStatus === 'assigned' || order.orderStatus === 'in_progress',
+                'text-success': order.orderStatus === 'completed',
+                'text-danger': order.orderStatus === 'cancelled'
+              }">
+              {{ order.orderStatus }}
+            </span>
                   <br>
                   <small class="text-muted">
-                    报修时间: {{ new Date(order.datetime).toLocaleString() }}
-                    <span v-if="order.completionTime"> | 完成时间: {{ new Date(order.completionTime).toLocaleString() }}</span>
+                    报修时间: {{ (order.datetime) }}
+                    <span v-if="order.completionTime"> | 完成时间: {{ (order.completionTime) }}</span>
                   </small>
                   <div v-if="order.totalMaterialCost || order.totalLaborCost">
                     <small class="text-muted">
-                      材料费: {{ order.totalMaterialCost || 0 }} | 工时费: {{ order.totalLaborCost || 0 }}
+                      材料费: ¥{{ order.totalMaterialCost.toFixed(2) }} |
+                      工时费: ¥{{ order.totalLaborCost.toFixed(2) }} (工作时长: {{ order.hoursWorked }}小时)
                     </small>
+                  </div>
+                  <div v-if="order.description">
+                    <small class="text-muted"><strong>问题描述:</strong> {{ order.description }}</small>
                   </div>
                 </div>
                 <div>
-                  <button v-if="order.status === 'pending' || order.status === 'assigned'" class="btn btn-sm btn-outline-success me-2" @click="handleAssignmentStatus(order.orderId, 'accepted')">接受</button>
-                  <button v-if="order.status === 'pending' || order.status === 'assigned'" class="btn btn-sm btn-outline-danger me-2" @click="handleAssignmentStatus(order.orderId, 'rejected')">拒绝</button>
-                  <button v-if="order.status === 'assigned' || order.status === 'in_progress'" class="btn btn-sm btn-outline-info me-2" @click="openUpdateOrderModal(order)">更新进度/结果</button>
+                  <!-- 接受/拒绝按钮只在分配状态为pending时显示 -->
+                  <button v-if="order.assignmentStatus === 'pending'"
+                          class="btn btn-sm btn-outline-success me-2"
+                          @click="handleAssignmentStatus(order.assignmentId, 'accepted')">
+                    接受
+                  </button>
+                  <button v-if="order.assignmentStatus === 'pending'"
+                          class="btn btn-sm btn-outline-danger me-2"
+                          @click="handleAssignmentStatus(order.assignmentId, 'rejected')">
+                    拒绝
+                  </button>
+
+                  <!-- 更新按钮只接受状态为accepted且工单状态是assigned或in_progress -->
+                  <button v-if="order.assignmentStatus === 'accepted' &&
+                         (order.orderStatus === 'assigned' || order.orderStatus === 'in_progress')"
+                          class="btn btn-sm btn-outline-info me-2"
+                          @click="openUpdateOrderModal(order)">
+                    更新进度/结果
+                  </button>
                 </div>
               </li>
             </ul>
@@ -97,61 +131,143 @@
           </div>
         </div>
       </div>
-
-      <!-- 更新工单模态框 -->
       <div class="modal fade" id="updateOrderModal" tabindex="-1" aria-labelledby="updateOrderModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
           <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="updateOrderModalLabel">更新工单 (ID: {{ currentOrderToUpdate.orderId }})</h5>
+            <div class="modal-header bg-info text-white">
+              <h5 class="modal-title" id="updateOrderModalLabel">
+                <i class="bi bi-wrench"></i> 更新维修工单 (ID: {{ currentOrderToUpdate.orderId }})
+              </h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+              <!-- 工单概览卡片 -->
+              <div class="card mb-4">
+                <div class="card-header">
+                  <h6 class="card-title mb-0">工单概览</h6>
+                </div>
+                <div class="card-body bg-light">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <p><strong>车辆ID:</strong> {{ currentOrderToUpdate.vehicleId }}</p>
+                      <p><strong>用户ID:</strong> {{ currentOrderToUpdate.userId }}</p>
+                    </div>
+                    <div class="col-md-4">
+                      <p><strong>报修时间:</strong> {{ (currentOrderToUpdate.datetime) }}</p>
+                      <p v-if="currentOrderToUpdate.completionTime">
+                        <strong>完成时间:</strong> {{ (currentOrderToUpdate.completionTime) }}
+                      </p>
+                    </div>
+                    <div class="col-md-4">
+                      <p><strong>问题描述:</strong><br>{{ currentOrderToUpdate.description }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <form @submit.prevent="updateRepairOrder">
-                <div class="mb-3">
-                  <label for="orderStatus" class="form-label">工单状态:</label>
-                  <select v-model="currentOrderToUpdate.status" class="form-select" id="orderStatus" required>
-                    <option value="assigned">已分配</option>
-                    <option value="in_progress">进行中</option>
-                    <option value="completed">已完成</option>
-                    <option value="cancelled">已取消</option>
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label for="totalMaterialCost" class="form-label">总材料费:</label>
-                  <input type="number" step="0.01" v-model="currentOrderToUpdate.totalMaterialCost" class="form-control" id="totalMaterialCost">
-                </div>
-                <div class="mb-3">
-                  <label for="totalLaborCost" class="form-label">总工时费:</label>
-                  <input type="number" step="0.01" v-model="currentOrderToUpdate.totalLaborCost" class="form-control" id="totalLaborCost">
-                </div>
-                <div class="mb-3">
-                  <label for="completionTime" class="form-label">完成时间:</label>
-                  <input type="datetime-local" v-model="currentOrderToUpdate.completionTime" class="form-control" id="completionTime">
-                </div>
-                <!-- 材料消耗记录 -->
-                <h6 class="mt-4">记录材料消耗:</h6>
-                <div v-for="(item, index) in materialConsumptions" :key="index" class="row mb-2 align-items-end">
-                  <div class="col-5">
-                    <label :for="'materialSelect' + index" class="form-label">材料</label>
-                    <select v-model="item.materialId" class="form-select" :id="'materialSelect' + index" required>
-                      <option value="" disabled>选择材料</option>
-                      <option v-for="material in allMaterials" :key="material.materialId" :value="material.materialId">
-                        {{ material.name }} (¥{{ material.unitPrice }} / 库存: {{ material.stockQuantity }})
-                      </option>
+                <div class="row mb-3">
+                  <div class="col-md-6">
+                    <label for="orderStatus" class="form-label fw-bold text-primary">
+                      <i class="bi bi-clipboard-check"></i> 工单状态:
+                    </label>
+                    <select v-model="currentOrderToUpdate.orderStatus" class="form-select" id="orderStatus" required>
+                      <option value="assigned">已分配</option>
+                      <option value="in_progress">进行中</option>
+                      <option value="completed">已完成</option>
+                      <option value="cancelled">已取消</option>
                     </select>
                   </div>
-                  <div class="col-4">
-                    <label :for="'quantityInput' + index" class="form-label">数量</label>
-                    <input type="number" v-model="item.quantity" class="form-control" :id="'quantityInput' + index" min="1" required>
-                  </div>
-                  <div class="col-3">
-                    <button type="button" class="btn btn-danger btn-sm" @click="removeMaterialConsumption(index)">移除</button>
+
+                  <div class="col-md-6">
+                    <label for="hoursWorked" class="form-label fw-bold text-primary">
+                      <i class="bi bi-clock-history"></i> 实际工作小时数:
+                    </label>
+                    <div class="input-group">
+                      <input type="number" step="0.5" v-model="currentOrderToUpdate.hoursWorked" class="form-control" id="hoursWorked" min="0.5" max="24" required>
+                      <span class="input-group-text">小时</span>
+                    </div>
                   </div>
                 </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" @click="addMaterialConsumption">添加材料</button>
-                <hr>
-                <button type="submit" class="btn btn-primary">保存更新</button>
+
+                <div class="row mb-4">
+                  <div class="col-md-6">
+                    <label for="totalMaterialCost" class="form-label fw-bold text-success">
+                      <i class="bi bi-box-seam"></i> 总材料费:
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text">¥</span>
+                      <input type="number" step="0.01" v-model="currentOrderToUpdate.totalMaterialCost" class="form-control" id="totalMaterialCost" min="0">
+                    </div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label for="totalLaborCost" class="form-label fw-bold text-success">
+                      <i class="bi bi-person-workspace"></i> 总工时费:
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text">¥</span>
+                      <input type="number" step="0.01" v-model="currentOrderToUpdate.totalLaborCost" class="form-control" id="totalLaborCost" min="0">
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <!-- 材料消耗记录 -->
+                <div class="card">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                      <i class="bi bi-clipboard-data"></i> 材料消耗记录
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addMaterialConsumption">
+                      <i class="bi bi-plus-circle"></i> 添加材料
+                    </button>
+                  </div>
+
+                  <div class="card-body">
+                    <div v-if="materialConsumptions.length === 0" class="text-center py-4 text-muted">
+                      尚未添加任何材料消耗记录
+                    </div>
+
+                    <div v-for="(item, index) in materialConsumptions" :key="index" class="row mb-3 align-items-center">
+                      <div class="col-md-5 mb-2">
+                        <label class="form-label">材料选择</label>
+                        <select v-model="item.materialId" class="form-select" required>
+                          <option value="" disabled>选择材料</option>
+                          <option v-for="material in allMaterials" :key="material.materialId" :value="material.materialId">
+                            {{ material.name }} (¥{{ material.unitPrice.toFixed(2) }} / 库存: {{ material.stockQuantity }})
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="col-md-3 mb-2">
+                        <label class="form-label">数量</label>
+                        <div class="input-group">
+                          <input type="number" v-model="item.quantity" class="form-control" min="1" required>
+                          <span class="input-group-text">个</span>
+                        </div>
+                      </div>
+
+
+
+                      <div class="col-md-1 mb-2 text-center">
+                        <button type="button" class="btn btn-outline-danger" @click="removeMaterialConsumption(index)">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                  <button type="button" class="btn btn-secondary me-3" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> 取消
+                  </button>
+                  <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存更新
+                  </button>
+                </div>
               </form>
             </div>
           </div>
@@ -188,11 +304,18 @@ interface RepairOrder {
   orderId: number;
   vehicleId: number;
   userId: number;
-  datetime: string;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  datetime: string; // 工单创建时间
+  orderStatus: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled'; // 原 status 重命名
   totalMaterialCost: number;
   totalLaborCost: number;
   completionTime: string | null;
+
+  // 新增的分配信息字段
+  assignmentId: number;         // 分配记录ID
+  mechanicId: number;           // 维修工ID
+  hoursWorked: number;          // 实际工作小时数
+  assignmentStatus: 'accepted' | 'rejected' | 'pending'; // 分配状态
+  description: string;          // 工单描述
 }
 
 interface Material {
@@ -305,7 +428,7 @@ export default defineComponent({
       if (!mechanicDetails.value.mechanicId) return;
       try {
         const token = localStorage.getItem('jwt_token');
-        const response = await axios.get(`http://localhost:10086/api/mechanic/${mechanicDetails.value.mechanicId}/orders`, {
+        const response = await axios.get(`http://localhost:10086/api/mechanic/${mechanicDetails.value.mechanicId}/assignments`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data.code === 200) {
@@ -317,6 +440,7 @@ export default defineComponent({
         console.error("获取维修工单失败:", error);
         toast.error(error.response?.data?.msg || '获取维修工单失败');
       }
+      console.log(mechanicRepairOrders.value);
     };
 
     // Fetch all materials for consumption recording
@@ -440,6 +564,7 @@ export default defineComponent({
             const allMechanicAssignments = await axios.get(`http://localhost:10086/api/assignment/byMechanic/${mechanicDetails.value.mechanicId}`, {
               headers: { Authorization: `Bearer ${token}` }
             });
+            console.log('allMechanicAssignments', allMechanicAssignments);
             const targetAssignment = allMechanicAssignments.data.data.find((a: any) => a.orderId === orderId);
             if (targetAssignment) {
               assignmentIdToUpdate = targetAssignment.assignmentId;
@@ -456,9 +581,11 @@ export default defineComponent({
           return;
         }
 
-        const response = await axios.patch(`http://localhost:10086/api/assignment/${assignmentIdToUpdate}`, { status: status }, {
+        const response = await axios.post(`http://localhost:10086/api/assignment/${assignmentIdToUpdate}`, { status: status }, {
           headers: { Authorization: `Bearer ${token}` }
         });
+
+        console.log('response', response);
 
         if (response.data.code === 200) {
           toast.success(`工单 ${orderId} 已${status === 'accepted' ? '接受' : '拒绝'}！`);
