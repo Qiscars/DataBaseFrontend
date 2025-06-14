@@ -35,16 +35,16 @@
                   <h6>总工单数: {{ stats.totalRepairOrders }}</h6>
                 </div>
               </div>
-              <div class="col-md-4 mb-3">
-                <div class="p-3 bg-light rounded shadow-sm">
-                  <h6>材料总库存: {{ stats.totalMaterialStock }}</h6>
-                </div>
-              </div>
-              <div class="col-md-4 mb-3">
-                <div class="p-3 bg-light rounded shadow-sm">
-                  <h6>材料总价值: ¥{{ stats.totalMaterialValue }}</h6>
-                </div>
-              </div>
+<!--              <div class="col-md-4 mb-3">-->
+<!--                <div class="p-3 bg-light rounded shadow-sm">-->
+<!--                  <h6>材料总库存: {{ stats.totalMaterialStock }}</h6>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--              <div class="col-md-4 mb-3">-->
+<!--                <div class="p-3 bg-light rounded shadow-sm">-->
+<!--                  <h6>材料总价值: ¥{{ stats.totalMaterialValue }}</h6>-->
+<!--                </div>-->
+<!--              </div>-->
             </div>
           </div>
         </div>
