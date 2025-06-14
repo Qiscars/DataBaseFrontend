@@ -627,7 +627,14 @@ export default defineComponent({
         // Fetch All Repair Orders
         const ordersResponse = await axios.get('http://localhost:10086/api/user/admin/allRepairOrders', { headers });
         if (ordersResponse.data.code === 200) {
-          allRepairOrders.value = ordersResponse.data.data;
+          // allRepairOrders.value = ordersResponse.data.data;
+          allRepairOrders.value = ordersResponse.data.data.map((order: any) => ({
+            ...order,
+            datetime: order.datetime // 用createtime赋值给datetime
+          }));
+
+          console.log(allRepairOrders.value);
+          console.log(ordersResponse.data.data);
           stats.value.totalRepairOrders = allRepairOrders.value.length;
         }
 

@@ -44,7 +44,8 @@
               <li class="list-group-item d-flex justify-content-between align-items-center"
                   v-for="order in mechanicRepairOrders" :key="order.orderId">
                 <div>
-                  <strong>工单ID:</strong> {{ order.orderId }} |
+<!--                  <strong>工单ID:</strong> {{ order.orderId }} |-->
+                  <strong>分配ID:</strong> {{ order.assignmentId }}
                   <strong>车辆ID:</strong> {{ order.vehicleId }} |
                   <strong>分配状态:</strong>
                   <span :class="{
@@ -64,17 +65,20 @@
               }">
               {{ order.orderStatus }}
             </span>
-                  <br>
+                  <p v-if="order.hoursWorked !== undefined">
+                    <strong>工作时长:</strong> {{ order.hoursWorked }} 小时
+                  </p>
+<!--                  <br>-->
                   <small class="text-muted">
                     报修时间: {{ (order.datetime) }}
                     <span v-if="order.completionTime"> | 完成时间: {{ (order.completionTime) }}</span>
                   </small>
-                  <div v-if="order.totalMaterialCost || order.totalLaborCost">
-                    <small class="text-muted">
-                      材料费: ¥{{ order.totalMaterialCost.toFixed(2) }} |
-                      工时费: ¥{{ order.totalLaborCost.toFixed(2) }} (工作时长: {{ order.hoursWorked }}小时)
-                    </small>
-                  </div>
+<!--                  <div v-if="order.totalMaterialCost || order.totalLaborCost">-->
+<!--                    <small class="text-muted">-->
+<!--                      材料费: ¥{{ order.totalMaterialCost.toFixed(2) }} |-->
+<!--                      工时费: ¥{{ order.totalLaborCost.toFixed(2) }} (工作时长: {{ order.hoursWorked }}小时)-->
+<!--                    </small>-->
+<!--                  </div>-->
                   <div v-if="order.description">
                     <small class="text-muted"><strong>问题描述:</strong> {{ order.description }}</small>
                   </div>
@@ -136,7 +140,7 @@
           <div class="modal-content">
             <div class="modal-header bg-info text-white">
               <h5 class="modal-title" id="updateOrderModalLabel">
-                <i class="bi bi-wrench"></i> 更新维修工单 (ID: {{ currentOrderToUpdate.orderId }})
+                <i class="bi bi-wrench"></i> 更新维修工单 (分配ID: {{ currentOrderToUpdate.assignmentId }})
               </h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -157,6 +161,9 @@
                       <p v-if="currentOrderToUpdate.completionTime">
                         <strong>完成时间:</strong> {{ (currentOrderToUpdate.completionTime) }}
                       </p>
+<!--                      <p v-if="currentOrderToUpdate.hoursWorked">-->
+<!--                        <strong>工作时长:</strong> {{ currentOrderToUpdate.hoursWorked }} 小时-->
+<!--                      </p>-->
                     </div>
                     <div class="col-md-4">
                       <p><strong>问题描述:</strong><br>{{ currentOrderToUpdate.description }}</p>
@@ -356,6 +363,12 @@ export default defineComponent({
       totalMaterialCost: 0,
       totalLaborCost: 0,
       completionTime: null,
+      // 新增的分配信息字段
+      assignmentId: 0,         // 分配记录ID
+      mechanicId: 0,           // 维修工ID
+      hoursWorked: 0,          // 实际工作小时数
+      assignmentStatus: 'accepted', // 分配状态
+      description: '',          // 工单描述
     });
     const materialConsumptions = ref<MaterialConsumption[]>([]);
     const allMaterials = ref<Material[]>([]);
@@ -432,7 +445,9 @@ export default defineComponent({
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data.code === 200) {
+          console.log("Mechanic Repair Orders Response:", response.data.data);
           mechanicRepairOrders.value = response.data.data;
+          console.log("Mechanic Repair Orders:", mechanicRepairOrders.value);
         } else {
           toast.error(response.data.msg || '获取维修工单失败');
         }
@@ -611,17 +626,36 @@ export default defineComponent({
       }
       materialConsumptions.value = []; // Clear previous consumptions
       // Fetch existing material consumptions for this order if any
-      fetchMaterialConsumptionsForOrder(order.orderId);
+      fetchMaterialConsumptionsForAssignment(order.assignmentId);
       if (updateOrderModalInstance) {
         updateOrderModalInstance.show();
       }
     };
 
     // Fetch material consumptions for a specific order
-    const fetchMaterialConsumptionsForOrder = async (orderId: number) => {
+    // const fetchMaterialConsumptionsForOrder = async (orderId: number) => {
+    //   try {
+    //     const token = localStorage.getItem('jwt_token');
+    //     const response = await axios.get(`http://localhost:10086/api/material/consume/byOrder/${orderId}`, {
+    //       headers: { Authorization: `Bearer ${token}` }
+    //     });
+    //     if (response.data.code === 200) {
+    //       materialConsumptions.value = response.data.data.map((item: any) => ({
+    //         materialId: item.materialId,
+    //         quantity: item.quantity
+    //       }));
+    //     } else {
+    //       toast.error(response.data.msg || '获取材料消耗记录失败');
+    //     }
+    //   } catch (error: any) {
+    //     console.error("获取材料消耗记录失败:", error);
+    //     toast.error(error.response?.data?.msg || '获取材料消耗记录失败');
+    //   }
+    // };
+    const fetchMaterialConsumptionsForAssignment = async (assignmentId: number) => {
       try {
         const token = localStorage.getItem('jwt_token');
-        const response = await axios.get(`http://localhost:10086/api/material/consume/byOrder/${orderId}`, {
+        const response = await axios.get(`http://localhost:10086/api/material/consumption/${assignmentId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.data.code === 200) {
@@ -637,7 +671,6 @@ export default defineComponent({
         toast.error(error.response?.data?.msg || '获取材料消耗记录失败');
       }
     };
-
 
     // Add a new material consumption row
     const addMaterialConsumption = () => {
@@ -659,18 +692,31 @@ export default defineComponent({
         const token = localStorage.getItem('jwt_token');
 
         // 1. Update Repair Order
-        const updateOrderResponse = await axios.put(`http://localhost:10086/api/repair-order/${currentOrderToUpdate.value.orderId}`, {
-          orderId: currentOrderToUpdate.value.orderId,
-          status: currentOrderToUpdate.value.status,
-          totalMaterialCost: currentOrderToUpdate.value.totalMaterialCost,
-          totalLaborCost: currentOrderToUpdate.value.totalLaborCost,
-          completionTime: currentOrderToUpdate.value.completionTime ? new Date(currentOrderToUpdate.value.completionTime) : null,
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // const updateOrderResponse = await axios.put(`http://localhost:10086/api/repair-order/${currentOrderToUpdate.value.orderId}`, {
+        //   orderId: currentOrderToUpdate.value.orderId,
+        //   status: currentOrderToUpdate.value.status,
+        //   totalMaterialCost: currentOrderToUpdate.value.totalMaterialCost,
+        //   totalLaborCost: currentOrderToUpdate.value.totalLaborCost,
+        //   completionTime: currentOrderToUpdate.value.completionTime ? new Date(currentOrderToUpdate.value.completionTime) : null,
+        // }, {
+        //   headers: { Authorization: `Bearer ${token}` }
+        // });
+        //
+        // if (updateOrderResponse.data.code !== 200) {
+        //   toast.error(updateOrderResponse.data.msg || '更新工单进度/结果失败');
+        //   return;
+        // }
 
-        if (updateOrderResponse.data.code !== 200) {
-          toast.error(updateOrderResponse.data.msg || '更新工单进度/结果失败');
+        const workingTimeRes = await axios.post(
+          'http://127.0.0.1:10086/api/assignment/updateWorkingTime',
+          {
+            assignmentId: currentOrderToUpdate.value.assignmentId,
+            workingHour: currentOrderToUpdate.value.hoursWorked
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (workingTimeRes.data.code !== 200) {
+          toast.error(workingTimeRes.data.msg || '提交实际工时失败');
           return;
         }
 
@@ -680,8 +726,8 @@ export default defineComponent({
             toast.error("请填写完整的材料消耗信息！");
             return;
           }
-          await axios.post(`http://localhost:10086/api/material/consume`, {
-            orderId: currentOrderToUpdate.value.orderId,
+          await axios.post(`http://localhost:10086/api/material/consumption`, {
+            assignmentId: currentOrderToUpdate.value.assignmentId,
             materialId: item.materialId,
             quantity: item.quantity,
           }, {
