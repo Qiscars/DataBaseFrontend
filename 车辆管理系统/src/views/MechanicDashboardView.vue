@@ -33,10 +33,11 @@
         </div>
       </div>
 
+
       <!-- 我的维修工单 -->
       <div class="card mb-4 shadow-sm">
         <div class="card-header bg-warning text-white">
-          <h5 class="mb-0">我的维修工单</h5>
+          <h5 class="mb-0">分配给我的维修工单</h5>
         </div>
         <div class="card-body">
           <div v-if="mechanicRepairOrders.length > 0">
@@ -67,6 +68,10 @@
             </span>
                   <p v-if="order.hoursWorked !== undefined">
                     <strong>工作时长:</strong> {{ order.hoursWorked }} 小时
+                  </p>
+                  <!-- 新增：仅在工单状态为completed时显示laborCost -->
+                  <p v-if="order.orderStatus === 'completed' && order.laborCost !== undefined">
+                    <strong>工时费:</strong> ¥{{ order.laborCost}}
                   </p>
 <!--                  <br>-->
                   <small class="text-muted">
@@ -315,6 +320,7 @@ interface RepairOrder {
   orderStatus: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled'; // 原 status 重命名
   totalMaterialCost: number;
   totalLaborCost: number;
+  laborCost: number; // 新增字段，用于展示
   completionTime: string | null;
 
   // 新增的分配信息字段
@@ -362,6 +368,7 @@ export default defineComponent({
       status: 'assigned',
       totalMaterialCost: 0,
       totalLaborCost: 0,
+      laborCost: 0, // 新增字段，用于展示
       completionTime: null,
       // 新增的分配信息字段
       assignmentId: 0,         // 分配记录ID
@@ -447,6 +454,11 @@ export default defineComponent({
         if (response.data.code === 200) {
           console.log("Mechanic Repair Orders Response:", response.data.data);
           mechanicRepairOrders.value = response.data.data;
+          mechanicRepairOrders.value.forEach(order => {
+            // Ensure all orders have the necessary fields
+            order.laborCost = order.laborCost || 0; // Ensure laborCost is set
+            // order.assignmentStatus = order.assignmentStatus || 'pending'; // Default to pending if not set
+          });
           console.log("Mechanic Repair Orders:", mechanicRepairOrders.value);
         } else {
           toast.error(response.data.msg || '获取维修工单失败');

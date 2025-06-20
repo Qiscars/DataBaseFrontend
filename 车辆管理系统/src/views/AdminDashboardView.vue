@@ -163,6 +163,7 @@
           </div>
         </div>
 
+
         <!-- 维修工单管理 -->
         <div class="card mb-4 shadow-sm">
           <div class="card-header bg-warning text-white">
@@ -174,7 +175,7 @@
               <table class="table table-hover">
                 <thead>
                 <tr>
-                  <th>ID</th>
+                  <th>工单ID</th>
                   <th>车辆ID</th>
                   <th>用户ID</th>
                   <th>报修时间</th>
@@ -186,30 +187,60 @@
                 </tr>
                 </thead>
                 <tbody>
-                <tr v-for="order in allRepairOrders" :key="order.orderId">
-                  <td>{{ order.orderId }}</td>
-                  <td>{{ order.vehicleId }}</td>
-                  <td>{{ order.userId }}</td>
-                  <td>{{ new Date(order.datetime).toLocaleString() }}</td>
-                  <td>
-                      <span :class="{'text-primary': order.status === 'pending', 'text-warning': order.status === 'assigned' || order.status === 'in_progress', 'text-success': order.status === 'completed', 'text-danger': order.status === 'cancelled'}">
-                        {{ order.status }}
-                      </span>
-                  </td>
-                  <td>{{ order.totalMaterialCost }}</td>
-                  <td>{{ order.totalLaborCost }}</td>
-                  <td>{{ order.completionTime ? new Date(order.completionTime).toLocaleString() : 'N/A' }}</td>
-                  <td>
-                    <button class="btn btn-sm btn-outline-info me-2" @click="openEditRepairOrderModal(order)">编辑</button>
-                    <button class="btn btn-sm btn-outline-danger" @click="deleteRepairOrder(order.orderId)">删除</button>
-                    <button class="btn btn-sm btn-outline-primary ms-2" @click="openAssignOrderModal(order.orderId)">分配</button>
-                  </td>
-                </tr>
+                <template v-for="order in allRepairOrders" :key="order.orderId">
+                  <tr>
+                    <td>{{ order.orderId }}</td>
+                    <td>{{ order.vehicleId }}</td>
+                    <td>{{ order.userId }}</td>
+                    <td>{{ new Date(order.datetime).toLocaleString() }}</td>
+                    <td>
+                <span :class="{'text-primary': order.status === 'pending', 'text-warning': order.status === 'assigned' || order.status === 'in_progress', 'text-success': order.status === 'completed', 'text-danger': order.status === 'cancelled'}">
+                  {{ order.status }}
+                </span>
+                    </td>
+                    <td>{{ order.totalMaterialCost }}</td>
+                    <td>{{ order.totalLaborCost }}</td>
+                    <td>{{ order.completionTime ? new Date(order.completionTime).toLocaleString() : 'N/A' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-info me-2" @click="openEditRepairOrderModal(order)">编辑</button>
+                      <button class="btn btn-sm btn-outline-danger" @click="deleteRepairOrder(order.orderId)">删除</button>
+                      <button class="btn btn-sm btn-outline-primary ms-2" @click="openAssignOrderModal(order.orderId)">分配</button>
+                    </td>
+                  </tr>
+                  <tr v-if="assignmentsByOrderId[order.orderId] && assignmentsByOrderId[order.orderId].length > 0">
+                    <td colspan="9" class="p-0">
+                      <div class="card border-0 rounded-0 bg-lightest ms-3">
+                        <div class="card-body p-2">
+                          <h6 class="mb-2">工单 #{{ order.orderId }} 的分配列表:</h6>
+                          <table class="table table-sm mb-0">
+                            <thead>
+                            <tr>
+                              <th>分配ID</th>
+                              <th>维修人员ID</th>
+                              <th>实际工作小时</th>
+                              <th>状态</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-for="assignment in assignmentsByOrderId[order.orderId]" :key="assignment.assignmentId">
+                              <td>{{ assignment.assignmentId }}</td>
+                              <td>{{ assignment.mechanicId }}</td>
+                              <td>{{ assignment.hoursWorked }}</td>
+                              <td>{{ assignment.status }}</td>
+                            </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
+
 
         <!-- 材料管理 -->
         <div class="card mb-4 shadow-sm">
@@ -513,6 +544,14 @@ interface Material {
   stockQuantity: number | null;
 }
 
+interface OrderAssignment {
+  assignmentId: number | null;
+  orderId: number | null;
+  mechanicId: number | null;
+  hoursWorked: number | null;
+  status: 'accepted' | 'rejected';
+}
+
 
 export default defineComponent({
   name: 'AdminDashboardView',
@@ -583,6 +622,47 @@ export default defineComponent({
       }
     };
 
+    // 分配列表数据，按工单ID分组
+    const assignmentsByOrderId = ref<Record<number, OrderAssignment[]>>({});
+
+// 获取所有工单的分配列表
+    const fetchAllAssignments = async () => {
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        toast.error("未找到登录凭证，请先登录！");
+        return;
+      }
+
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // 首先获取所有工单ID
+      const orderIds = allRepairOrders.value.map(order => order.orderId).filter(id => id !== null) as number[];
+
+      if (orderIds.length === 0) {
+        return; // 如果没有工单，直接返回
+      }
+
+      try {
+        // 为每个工单ID获取分配列表
+        for (const orderId of orderIds) {
+          const response = await axios.get(`http://localhost:10086/api/assignment/${orderId}`, { headers });
+          if (response.data.code === 200) {
+            assignmentsByOrderId.value[orderId] = response.data.data || [];
+          } else {
+            toast.error(response.data.msg || `获取工单#${orderId}的分配列表失败`);
+            assignmentsByOrderId.value[orderId] = [];
+          }
+        }
+      } catch (error: any) {
+        console.error("获取所有工单分配列表失败:", error);
+        toast.error(error.response?.data?.msg || '获取所有工单分配列表失败');
+        // 设置为空数组，避免显示错误数据
+        orderIds.forEach(orderId => {
+          assignmentsByOrderId.value[orderId] = [];
+        });
+      }
+    };
+
     // --- Fetch All Data (Admin Specific) ---
     const fetchAllData = async () => {
       if (userRole.value !== 'admin') return;
@@ -637,6 +717,10 @@ export default defineComponent({
           console.log(ordersResponse.data.data);
           stats.value.totalRepairOrders = allRepairOrders.value.length;
         }
+        // 在获取工单后，获取所有分配列表
+        await fetchAllAssignments();
+        console.log("repairOrders:", allRepairOrders.value);
+        console.log("Assignments by Order ID:", assignmentsByOrderId.value);
 
         // Fetch All Materials
         const materialsResponse = await axios.get('http://localhost:10086/api/material/all', { headers });
@@ -1034,6 +1118,9 @@ export default defineComponent({
       currentOrderIdToAssign,
       selectedMechanicIdForAssignment,
       assignOrder,
+      fetchAllData,
+      fetchAllAssignments,
+      assignmentsByOrderId,
     };
   },
 });

@@ -41,6 +41,26 @@
         </div>
       </div>
 
+<!--      &lt;!&ndash; 提交车辆报修信息 &ndash;&gt;-->
+<!--      <div class="card mb-4 shadow-sm">-->
+<!--        <div class="card-header bg-info text-white">-->
+<!--          <h5 class="mb-0">提交报修</h5>-->
+<!--        </div>-->
+<!--        <div class="card-body">-->
+<!--          <form @submit.prevent="submitRepairOrder">-->
+<!--            <div class="mb-3">-->
+<!--              <label for="selectVehicle" class="form-label">选择报修车辆:</label>-->
+<!--              <select v-model="newRepairOrder.vehicleId" class="form-select" id="selectVehicle" required>-->
+<!--                <option value="" disabled>请选择车辆</option>-->
+<!--                <option v-for="vehicle in userVehicles" :key="vehicle.vehicleId" :value="vehicle.vehicleId">-->
+<!--                  {{ vehicle.licensePlate }} ({{ vehicle.brand }} {{ vehicle.model }})-->
+<!--                </option>-->
+<!--              </select>-->
+<!--            </div>-->
+<!--            <button type="submit" class="btn btn-info">提交报修</button>-->
+<!--          </form>-->
+<!--        </div>-->
+<!--      </div>-->
       <!-- 提交车辆报修信息 -->
       <div class="card mb-4 shadow-sm">
         <div class="card-header bg-info text-white">
@@ -57,6 +77,14 @@
                 </option>
               </select>
             </div>
+
+            <!-- 新增：报修描述输入框 -->
+            <div class="mb-3">
+              <label for="description" class="form-label">报修描述:</label>
+              <textarea v-model="newRepairOrder.description" class="form-control" id="description" rows="3"
+                        placeholder="请详细描述您遇到的车辆问题..."></textarea>
+            </div>
+
             <button type="submit" class="btn btn-info">提交报修</button>
           </form>
         </div>
@@ -190,6 +218,7 @@ export default defineComponent({
 
     const newRepairOrder = ref({
       vehicleId: '' as any, // 初始为空，用户选择
+      description: ''       // 新增：报修描述
     });
 
     const currentOrderIdForFeedback = ref<number | null>(null);
@@ -278,7 +307,8 @@ export default defineComponent({
         const token = localStorage.getItem('jwt_token');
         const response = await axios.post(`http://localhost:10086/api/repair-order`, {
           vehicleId: newRepairOrder.value.vehicleId,
-          userId: userId.value // 后端会从JWT获取，这里客户端传递也可，以防万一
+          userId: userId.value, // 后端会从JWT获取，这里客户端传递也可，以防万一
+          description: newRepairOrder.value.description  // 新增：添加description参数
         }, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -288,6 +318,7 @@ export default defineComponent({
           // 刷新工单列表
           fetchUserRepairOrders();
           newRepairOrder.value.vehicleId = ''; // 清空表单
+          newRepairOrder.value.description = '';  // 新增：清空description
         } else {
           toast.error(response.data.msg || '报修提交失败');
         }
