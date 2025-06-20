@@ -86,6 +86,41 @@
           </div>
         </div>
 
+        <!-- 用户历史修改信息 -->
+        <div class="card mb-4 shadow-sm">
+          <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">用户历史修改信息</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                <tr>
+                  <th>历史ID</th>
+                  <th>用户ID</th>
+                  <th>原姓名</th>
+                  <th>原联系方式</th>
+                  <th>新姓名</th>
+                  <th>新联系方式</th>
+                  <th>修改时间</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="item in userInfoHistory" :key="item.historyId">
+                  <td>{{ item.historyId }}</td>
+                  <td>{{ item.userId }}</td>
+                  <td>{{ item.oldName }}</td>
+                  <td>{{ item.oldContact }}</td>
+                  <td>{{ item.newName }}</td>
+                  <td>{{ item.newContact }}</td>
+                  <td>{{ new Date(item.updateTime).toLocaleString() }}</td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- 维修人员管理 (只展示部分，因为维修人员也是用户，可以在用户管理中编辑) -->
         <div class="card mb-4 shadow-sm">
           <div class="card-header bg-info text-white">
@@ -579,6 +614,7 @@ export default defineComponent({
     const allVehicles = ref<Vehicle[]>([]);
     const allRepairOrders = ref<RepairOrder[]>([]);
     const allMaterials = ref<Material[]>([]);
+    const userInfoHistory = ref([]);
 
     // Modals and current editing items
     let userModalInstance: Modal | null = null;
@@ -736,6 +772,16 @@ export default defineComponent({
           // if (totalValueResponse.data.code === 200) {
           //   stats.value.totalMaterialValue = totalValueResponse.data.data;
           // }
+        }
+
+        try {
+          const historyRes = await axios.get('http://localhost:10086/userInfoHistory', { headers });
+          if (historyRes.data.code === 0) {
+            userInfoHistory.value = historyRes.data.data;
+          }
+        } catch (error: any) {
+          console.error("获取用户历史修改信息失败:", error);
+          toast.error(error.response?.data?.msg || '获取用户历史修改信息失败');
         }
       } catch (error: any) {
         console.error("获取管理员数据失败:", error);
@@ -1121,6 +1167,7 @@ export default defineComponent({
       fetchAllData,
       fetchAllAssignments,
       assignmentsByOrderId,
+      userInfoHistory,
     };
   },
 });
